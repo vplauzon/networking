@@ -1,0 +1,133 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "metadata": {
+                "description": "Name of the cluster (and DNS Prefix)"
+            },
+            "type": "string"
+        }
+    },
+    "variables": {
+        "Apps": [
+            "a",
+            "b",
+            "c"
+        ],
+        "Central Vnet": "cluster-vnet",
+        "VNET Address Space": "172.16.0.0/18",
+        "Subnet Address Space": "172.16.0.0/20",
+        "NSG": "aciNsg",
+        "Network Profile Name": "aci-networkProfile",
+        "Interface Config Name": "eth0",
+        "Interface IP Config": "ipconfigprofile1",
+        "Container Group Name": "myContainerGroup"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2018-07-01",
+            "name": "[variables('Central Vnet')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('VNET Address Space')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "central-compute",
+                        "properties": {
+                            "addressPrefix": "[variables('Subnet Address Space')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('NSG'))]"
+                            },
+                            "delegations": [
+                                {
+                                    "name": "DelegationService",
+                                    "properties": {
+                                        "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "resources": []
+        },
+        {
+            "name": "[variables('Network Profile Name')]",
+            "type": "Microsoft.Network/networkProfiles",
+            "apiVersion": "2018-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('Central Vnet'))]"
+            ],
+            "properties": {
+                "containerNetworkInterfaceConfigurations": [
+                    {
+                        "name": "[variables('Interface Config Name')]",
+                        "properties": {
+                            "ipConfigurations": [
+                                {
+                                    "name": "[variables('Interface IP Config')]",
+                                    "properties": {
+                                        "subnet": {
+                                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Central Vnet'), 'central-compute')]"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('Container Group Name')]",
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2018-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkProfiles', variables('Network Profile Name'))]"
+            ],
+            "properties": {
+                "containers": [
+                    {
+                        "name": "web-container",
+                        "properties": {
+                            "image": "vplauzon/get-started:part2-no-redis",
+                            "ports": [
+                                {
+                                    "port": "80",
+                                    "protocol": "Tcp"
+                                }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "cpu": "1",
+                                    "memoryInGB": "1"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "osType": "Linux",
+                "networkProfile": {
+                    "Id": "[resourceId('Microsoft.Network/networkProfiles', variables('Network Profile Name'))]"
+                },
+                "restartPolicy": "Always"
+            }
+        }
+    ],
+    "outputs": {
+        "containerIp": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups/', variables('Container Group Name'))).ipAddress.ip]"
+        }
+    }
+}
