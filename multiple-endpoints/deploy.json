@@ -11,9 +11,41 @@
     },
     "variables": {
         "Apps": [
-            "a",
-            "b",
-            "c"
+            {
+                "appName": "a",
+                "virtualNetworkRules": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'app-a', 'app-a-compute')]",
+                        "action": "Allow"
+                    },
+                    {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Central Vnet'), 'central-compute')]",
+                        "action": "Allow"
+                    }
+                ]
+            },
+            {
+                "appName": "b",
+                "virtualNetworkRules": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'app-b', 'app-b-compute')]",
+                        "action": "Allow"
+                    },
+                    {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Central Vnet'), 'central-compute')]",
+                        "action": "Allow"
+                    }
+                ]
+            },
+            {
+                "appName": "c",
+                "virtualNetworkRules": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'app-c', 'app-c-compute')]",
+                        "action": "Allow"
+                    }
+                ]
+            }
         ],
         "Central Vnet": "central-vnet",
         "VNET Address Space": "172.16.0.0/18",
@@ -27,7 +59,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2018-07-01",
-            "name": "[concat('app-', variables('Apps')[copyIndex()])]",
+            "name": "[concat('app-', variables('Apps')[copyIndex()].appName)]",
             "location": "[resourceGroup().location]",
             "copy": {
                 "name": "app-vnets",
@@ -42,30 +74,17 @@
                 },
                 "subnets": [
                     {
-                        "name": "[concat('app-', variables('Apps')[copyIndex()], '-subnet')]",
+                        "name": "[concat('app-', variables('Apps')[copyIndex()].appName, '-compute')]",
                         "properties": {
-                            "addressPrefix": "[variables('Subnet Address Space')]"
+                            "addressPrefix": "[variables('Subnet Address Space')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.Storage"
+                                }
+                            ]
                         }
                     }
                 ]
-            },
-            "resources": []
-        },
-        {
-            "type": "Microsoft.Storage/storageAccounts",
-            "apiVersion": "2018-11-01",
-            "name": "[concat(parameters('storage-prefix'), variables('Apps')[copyIndex()])]",
-            "location": "[resourceGroup().location]",
-            "copy": {
-                "name": "app-storage",
-                "count": "[length(variables('Apps'))]"
-            },
-            "sku": {
-                "name": "Standard_LRS"
-            },
-            "kind": "StorageV2",
-            "properties": {
-                "supportsHttpsTrafficOnly": true
             },
             "resources": []
         },
@@ -86,6 +105,11 @@
                         "name": "central-compute",
                         "properties": {
                             "addressPrefix": "[variables('Subnet Address Space')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.Storage"
+                                }
+                            ],
                             "delegations": [
                                 {
                                     "name": "DelegationService",
@@ -97,6 +121,33 @@
                         }
                     }
                 ]
+            },
+            "resources": []
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2018-11-01",
+            "name": "[concat(parameters('storage-prefix'), variables('Apps')[copyIndex()].appName)]",
+            "location": "[resourceGroup().location]",
+            "copy": {
+                "name": "app-storage",
+                "count": "[length(variables('Apps'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', concat('app-', variables('Apps')[copyIndex()].appName))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('Central Vnet'))]"
+            ],
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "networkAcls": {
+                    "bypass": "None",
+                    "virtualNetworkRules": "[variables('Apps')[copyIndex()].virtualNetworkRules]",
+                    "defaultAction": "Deny"
+                },
+                "supportsHttpsTrafficOnly": true
             },
             "resources": []
         },
