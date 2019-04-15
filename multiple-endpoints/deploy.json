@@ -2,9 +2,9 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "clusterName": {
+        "storage-prefix": {
             "metadata": {
-                "description": "Name of the cluster (and DNS Prefix)"
+                "description": "Prefix to storage accounts"
             },
             "type": "string"
         }
@@ -15,16 +15,60 @@
             "b",
             "c"
         ],
-        "Central Vnet": "cluster-vnet",
+        "Central Vnet": "central-vnet",
         "VNET Address Space": "172.16.0.0/18",
         "Subnet Address Space": "172.16.0.0/20",
-        "NSG": "aciNsg",
         "Network Profile Name": "aci-networkProfile",
         "Interface Config Name": "eth0",
         "Interface IP Config": "ipconfigprofile1",
-        "Container Group Name": "myContainerGroup"
+        "Container Group Name": "central-aci"
     },
     "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2018-07-01",
+            "name": "[concat('app-', variables('Apps')[copyIndex()])]",
+            "location": "[resourceGroup().location]",
+            "copy": {
+                "name": "app-vnets",
+                "count": "[length(variables('Apps'))]"
+            },
+            "dependsOn": [],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('VNET Address Space')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[concat('app-', variables('Apps')[copyIndex()], '-subnet')]",
+                        "properties": {
+                            "addressPrefix": "[variables('Subnet Address Space')]"
+                        }
+                    }
+                ]
+            },
+            "resources": []
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2018-11-01",
+            "name": "[concat(parameters('storage-prefix'), variables('Apps')[copyIndex()])]",
+            "location": "[resourceGroup().location]",
+            "copy": {
+                "name": "app-storage",
+                "count": "[length(variables('Apps'))]"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "supportsHttpsTrafficOnly": true
+            },
+            "resources": []
+        },
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2018-07-01",
@@ -42,9 +86,6 @@
                         "name": "central-compute",
                         "properties": {
                             "addressPrefix": "[variables('Subnet Address Space')]",
-                            "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('NSG'))]"
-                            },
                             "delegations": [
                                 {
                                     "name": "DelegationService",
