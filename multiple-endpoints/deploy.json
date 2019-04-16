@@ -182,7 +182,7 @@
         {
             "name": "[variables('Container Group Name')]",
             "type": "Microsoft.ContainerInstance/containerGroups",
-            "apiVersion": "2018-07-01",
+            "apiVersion": "2018-10-01",
             "location": "[resourceGroup().location]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkProfiles', variables('Network Profile Name'))]"
@@ -190,13 +190,17 @@
             "properties": {
                 "containers": [
                     {
-                        "name": "web-container",
+                        "name": "witness",
                         "properties": {
-                            "image": "vplauzon/get-started:part2-no-redis",
-                            "ports": [
+                            "image": "appropriate/curl",
+                            "command": [
+                                "sleep",
+                                "50000"
+                            ],
+                            "environmentVariables": [
                                 {
-                                    "port": "80",
-                                    "protocol": "Tcp"
+                                    "name": "test",
+                                    "value": "vince"
                                 }
                             ],
                             "resources": {
