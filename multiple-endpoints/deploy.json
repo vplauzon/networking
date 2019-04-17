@@ -152,6 +152,23 @@
             "resources": []
         },
         {
+            "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "apiVersion": "2018-11-01",
+            "name": "[concat(parameters('storage-prefix'), variables('Apps')[copyIndex()].appName, '/default/listable-container')]",
+            "location": "[resourceGroup().location]",
+            "copy": {
+                "name": "app-storage-containers",
+                "count": "[length(variables('Apps'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', concat(parameters('storage-prefix'), variables('Apps')[copyIndex()].appName))]"
+            ],
+            "properties": {
+                "publicAccess": "Container"
+            },
+            "resources": []
+        },
+        {
             "name": "[variables('Network Profile Name')]",
             "type": "Microsoft.Network/networkProfiles",
             "apiVersion": "2018-07-01",
@@ -188,25 +205,25 @@
                 "[resourceId('Microsoft.Network/networkProfiles', variables('Network Profile Name'))]"
             ],
             "properties": {
-                "containers": [
+                "copy": [
                     {
-                        "name": "witness",
-                        "properties": {
-                            "image": "appropriate/curl",
-                            "command": [
-                                "sleep",
-                                "50000"
-                            ],
-                            "environmentVariables": [
-                                {
-                                    "name": "test",
-                                    "value": "vince"
-                                }
-                            ],
-                            "resources": {
-                                "requests": {
-                                    "cpu": "1",
-                                    "memoryInGB": "1"
+                        "name": "containers",
+                        "count": "[length(variables('Apps'))]",
+                        "input": {
+                            "name": "[concat('witness-', variables('Apps')[copyIndex('containers')].appName)]",
+                            "properties": {
+                                "image": "appropriate/curl",
+                                "command": [
+                                    "curl",
+                                    "-s",
+                                    "[concat('https://', parameters('storage-prefix'), variables('Apps')[copyIndex('containers')].appName, '.blob.core.windows.net/listable-container/?restype=container&comp=list')]"
+                                ],
+                                "environmentVariables": [],
+                                "resources": {
+                                    "requests": {
+                                        "cpu": 0.2,
+                                        "memoryInGB": 0.3
+                                    }
                                 }
                             }
                         }
@@ -216,14 +233,14 @@
                 "networkProfile": {
                     "Id": "[resourceId('Microsoft.Network/networkProfiles', variables('Network Profile Name'))]"
                 },
-                "restartPolicy": "Always"
+                "restartPolicy": "OnFailure"
             }
         }
     ],
     "outputs": {
-        "containerIp": {
-            "type": "string",
-            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups/', variables('Container Group Name'))).ipAddress.ip]"
+        "containers": {
+            "type": "int",
+            "value": 42
         }
     }
 }
