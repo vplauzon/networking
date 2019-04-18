@@ -4,4 +4,4 @@ The following button deploys an ACI and three storage account.  This must be dep
 
 [![Deploy button](http://azuredeploy.net/deploybutton.png)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fvplauzon%2Fnetworking%2Fmaster%2Fmultiple-endpoints%2Fdeploy.json)
 
-See the [following article](TODO) for details.
+See the [following article](https://vincentlauzon.com/2019/04/18/multiple-service-endpoints-to-multiple-services/) for details.
